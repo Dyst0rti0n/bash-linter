@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/manifoldco/promptui"
 )
 
 var (
@@ -17,6 +18,8 @@ var (
 	issuesFound     int
 	checkShebang    bool
 	checkUnusedVars bool
+	errors          []string
+	errorSuggestions = map[string]string{}
 )
 
 func init() {
@@ -70,6 +73,9 @@ func main() {
 
 	// Print a summary report
 	printSummaryReport()
+
+	// Interactive mode
+	interactiveMode()
 }
 
 func checkShebangLine(line string, lineNumber int) {
@@ -93,9 +99,24 @@ func lintLine(line string, lineNumber int) {
 	checkLoopsAndConditionals(trimmedLine, lineNumber)
 	checkCommandSubstitutionBestPractice(trimmedLine, lineNumber)
 	checkExitInIfStatement(trimmedLine, lineNumber)
-	checkFunctionDeclarations(trimmedLine, lineNumber)
+	checkFunctionDeclarations(trimmedLine)
 	checkMissingKeywords(trimmedLine, lineNumber)
 	checkVariableUsage(trimmedLine)
+	checkNonPortableCommands(trimmedLine, lineNumber)
+	checkDangerousCommands(trimmedLine, lineNumber)
+	checkIndentation(trimmedLine, lineNumber)
+	checkHardCodedPaths(trimmedLine, lineNumber)
+	checkFunctionNaming(trimmedLine, lineNumber)
+	checkExitCodes(trimmedLine, lineNumber)
+	checkUnnecessaryCommands(trimmedLine, lineNumber)
+	checkEfficientLoops(trimmedLine, lineNumber)
+	checkCaseQuoting(trimmedLine, lineNumber)
+	checkSudoUsage(trimmedLine, lineNumber)
+	checkDocumentation(trimmedLine, lineNumber)
+	checkErrorHandling(trimmedLine, lineNumber)
+	checkScriptHeader(trimmedLine, lineNumber)
+	checkShellBuiltIns(trimmedLine, lineNumber)
+	checkSecurityVulnerabilities(trimmedLine, lineNumber)
 }
 
 func checkUnquotedVariables(line string, lineNumber int) {
@@ -164,7 +185,7 @@ func checkExitInIfStatement(line string, lineNumber int) {
 	}
 }
 
-func checkFunctionDeclarations(line string, lineNumber int) {
+func checkFunctionDeclarations(line string) {
 	funcRegex := regexp.MustCompile(`^([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\)`)
 	match := funcRegex.FindStringSubmatch(line)
 	if len(match) > 1 {
@@ -199,6 +220,117 @@ func checkVariableUsage(line string) {
 	}
 }
 
+func checkNonPortableCommands(line string, lineNumber int) {
+	nonPortableCmds := []string{"which", "let", "source"}
+	for _, cmd := range nonPortableCmds {
+		if strings.Contains(line, cmd) {
+			reportIssue(lineNumber, fmt.Sprintf("Non-portable command '%s' detected. Consider using a more portable alternative.", cmd))
+		}
+	}
+}
+
+func checkDangerousCommands(line string, lineNumber int) {
+	dangerousCmds := []string{"rm -rf", "mkfs", ":(){ :|:& };:"}
+	for _, cmd := range dangerousCmds {
+		if strings.Contains(line, cmd) {
+			reportIssue(lineNumber, fmt.Sprintf("Dangerous command '%s' detected. Ensure you have proper safeguards.", cmd))
+		}
+	}
+}
+
+func checkIndentation(line string, lineNumber int) {
+	if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+		if strings.Contains(line, " ") && strings.Contains(line, "\t") {
+			reportIssue(lineNumber, "Inconsistent indentation detected. Use either spaces or tabs consistently.")
+		}
+	}
+}
+
+func checkHardCodedPaths(line string, lineNumber int) {
+	hardCodedPathRegex := regexp.MustCompile(`/[a-zA-Z0-9_/]+`)
+	if hardCodedPathRegex.MatchString(line) {
+		reportIssue(lineNumber, "Hard-coded path detected. Consider using variables or environment variables.")
+	}
+}
+
+func checkFunctionNaming(line string, lineNumber int) {
+	funcRegex := regexp.MustCompile(`^([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\)`)
+	match := funcRegex.FindStringSubmatch(line)
+	if len(match) > 1 {
+		funcName := match[1]
+		if !strings.HasPrefix(funcName, "f_") {
+			reportIssue(lineNumber, fmt.Sprintf("Function '%s' does not follow naming convention. Consider prefixing with 'f_'.", funcName))
+		}
+	}
+}
+
+func checkExitCodes(line string, lineNumber int) {
+	if strings.Contains(line, "exit") && !strings.Contains(line, "exit 0") && !strings.Contains(line, "exit 1") {
+		reportIssue(lineNumber, "Exit command without specific exit code detected. Consider using 'exit 0' for success or 'exit 1' for failure.")
+	}
+}
+
+func checkUnnecessaryCommands(line string, lineNumber int) {
+	unnecessaryCmds := []string{"cd -", "echo", "pwd"}
+	for _, cmd := range unnecessaryCmds {
+		if strings.Contains(line, cmd) {
+			reportIssue(lineNumber, fmt.Sprintf("Unnecessary command '%s' detected. Consider removing it.", cmd))
+		}
+	}
+}
+
+func checkEfficientLoops(line string, lineNumber int) {
+	if strings.Contains(line, "for ") && strings.Contains(line, "in") && strings.Contains(line, "seq") {
+		reportIssue(lineNumber, "Inefficient loop detected. Consider using C-style loops for better performance.")
+	}
+}
+
+func checkCaseQuoting(line string, lineNumber int) {
+	caseRegex := regexp.MustCompile(`case\s+\$([a-zA-Z_][a-zA-Z0-9_]*)(\s*)in`)
+	if caseRegex.MatchString(line) {
+		reportIssue(lineNumber, "Unquoted variable in case statement detected. Consider quoting the variable.")
+	}
+}
+
+func checkSudoUsage(line string, lineNumber int) {
+	if strings.Contains(line, "sudo") && !strings.Contains(line, "&&") {
+		reportIssue(lineNumber, "Insecure use of sudo detected. Consider using 'sudo -k && sudo' to ensure sudo permissions are reset.")
+	}
+}
+
+func checkDocumentation(line string, lineNumber int) {
+	if strings.HasPrefix(line, "function") && !strings.Contains(line, "#") {
+		reportIssue(lineNumber, "Missing documentation for function. Consider adding comments to explain its purpose.")
+	}
+}
+
+func checkErrorHandling(line string, lineNumber int) {
+	if strings.Contains(line, "rm ") && !strings.Contains(line, "|| exit") {
+		reportIssue(lineNumber, "Lack of error handling detected. Consider adding '|| exit' to critical commands.")
+	}
+}
+
+func checkScriptHeader(line string, lineNumber int) {
+	if lineNumber == 1 && !strings.HasPrefix(line, "#") {
+		reportIssue(lineNumber, "Missing script header. Consider adding metadata like author, date, and purpose.")
+	}
+}
+
+func checkShellBuiltIns(line string, lineNumber int) {
+	shellBuiltIns := []string{"echo", "cd", "pwd", "let", "export", "unset"}
+	for _, builtIn := range shellBuiltIns {
+		if strings.Contains(line, builtIn) {
+			reportIssue(lineNumber, fmt.Sprintf("Shell built-in '%s' detected. Ensure its usage is intentional.", builtIn))
+		}
+	}
+}
+
+func checkSecurityVulnerabilities(line string, lineNumber int) {
+	if strings.Contains(line, "eval ") {
+		reportIssue(lineNumber, "Potential security vulnerability detected with 'eval'. Consider refactoring to avoid using eval.")
+	}
+}
+
 func isQuoted(line, variable string) bool {
 	quotedVarRegex := regexp.MustCompile(`(['"][^'"]*\$` + regexp.QuoteMeta(variable) + `[^'"]*['"])|(\$` + regexp.QuoteMeta(variable) + `[^a-zA-Z0-9_])`)
 	return quotedVarRegex.MatchString(line)
@@ -226,12 +358,16 @@ func checkUnusedFuncs() {
 }
 
 func reportIssue(lineNumber int, message string) {
+	issue := ""
 	if lineNumber > 0 {
-		color.Red("Line %d: %s", lineNumber, message)
+		issue = fmt.Sprintf("Line %d: %s", lineNumber, message)
 	} else {
-		color.Red(message)
+		issue = message
 	}
+	errors = append(errors, issue)
+	color.Red(issue)
 	issuesFound++
+	errorSuggestions[issue] = suggestFix(message)
 }
 
 func printSummaryReport() {
@@ -239,5 +375,77 @@ func printSummaryReport() {
 		color.Green("No issues found.")
 	} else {
 		color.Red("%d issue(s) found.", issuesFound)
+	}
+}
+
+func interactiveMode() {
+	prompt := promptui.Select{
+		Label: "Select an issue to view details or 'All Issues' to view all",
+		Items: append([]string{"All Issues"}, errors...),
+		Size:  10,
+	}
+
+	_, result, err := prompt.Run()
+
+	if err != nil {
+		fmt.Printf("Prompt failed %v\n", err)
+		return
+	}
+
+	if result == "All Issues" {
+		for _, issue := range errors {
+			color.Yellow(issue)
+			fmt.Println("  Suggestion:", color.CyanString(errorSuggestions[issue]))
+		}
+	} else {
+		color.Yellow(result)
+		fmt.Println("  Suggestion:", color.CyanString(errorSuggestions[result]))
+	}
+
+	fmt.Println("To view more details about each issue, refer to the documentation or use the linter with detailed output enabled.")
+}
+
+func suggestFix(message string) string {
+	switch {
+	case strings.Contains(message, "Unquoted variable"):
+		return "Quote the variable using \"${VAR}\" or '$VAR'."
+	case strings.Contains(message, "command substitution"):
+		return "Use $(...) instead of backticks."
+	case strings.Contains(message, "double square brackets"):
+		return "Use [[ ... ]] instead of [ ... ] for conditionals."
+	case strings.Contains(message, "unused variable"):
+		return "Remove the unused variable or use it appropriately."
+	case strings.Contains(message, "dangerous command"):
+		return "Add safeguards and ensure commands like 'rm -rf' are used with caution and proper checks."
+	case strings.Contains(message, "inconsistent indentation"):
+		return "Use either spaces or tabs consistently for indentation."
+	case strings.Contains(message, "function naming"):
+		return "Prefix function names with 'f_' for consistency."
+	case strings.Contains(message, "shell built-in"):
+		return "Ensure the usage of the shell built-in command is intentional and necessary."
+	case strings.Contains(message, "exit code"):
+		return "Specify an exit code (e.g., 'exit 0' for success, 'exit 1' for failure)."
+	case strings.Contains(message, "hard-coded path"):
+		return "Use variables or environment variables instead of hard-coded paths."
+	case strings.Contains(message, "logical operators"):
+		return "Use brackets around && and || for better readability."
+	case strings.Contains(message, "empty variable declaration"):
+		return "Initialize variables at the time of declaration."
+	case strings.Contains(message, "loops and conditionals"):
+		return "Use { } or ; do/done for better readability in loops and conditionals."
+	case strings.Contains(message, "non-portable command"):
+		return "Replace non-portable commands with more portable alternatives."
+	case strings.Contains(message, "missing keyword"):
+		return "Ensure that 'if' statements have a matching 'fi', and loops have matching 'done'."
+	case strings.Contains(message, "documentation"):
+		return "Add comments to explain the purpose of the function."
+	case strings.Contains(message, "error handling"):
+		return "Add error handling (e.g., '|| exit') to critical commands."
+	case strings.Contains(message, "script header"):
+		return "Add a script header with metadata like author, date, and purpose."
+	case strings.Contains(message, "security vulnerability"):
+		return "Refactor to avoid using potentially dangerous commands like 'eval'."
+	default:
+		return "Refer to best practices for resolving this issue."
 	}
 }
